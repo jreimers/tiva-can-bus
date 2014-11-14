@@ -11,8 +11,6 @@
 #include "driverlib/gpio.h"
 #include "driverlib/uart.h"
 #include "driverlib/pin_map.h"
-#include "driverlib/rom.h"
-#include "driverlib/rom_map.h"
 #include "utils/uartstdio.h"
 
 volatile bool errFlag = 0; // transmission error flag
