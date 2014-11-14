@@ -1,0 +1,13 @@
+master/*
+slave/*
+
+!master/CANMaster
+!slave/CANSlave
+
+master/CANMaster/*
+slave/CANSlave/*
+
+!master/CANMaster/main.c
+!slave/CANSlave/main.c
+
+!.gitignore
