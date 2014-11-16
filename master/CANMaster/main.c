@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <math.h>
 
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
@@ -11,13 +12,15 @@
 #include "driverlib/gpio.h"
 #include "driverlib/uart.h"
 #include "driverlib/pin_map.h"
+
 #include "utils/uartstdio.h"
-#include "math.h"
+
+#define PI = 3.14159265359f
 
 volatile bool errFlag = 0; // transmission error flag
 unsigned int sysClock; // clockspeed in hz
 
-void Delay(unsigned int milliseconds) {
+void delay(unsigned int milliseconds) {
 	SysCtlDelay((sysClock / 3) * (milliseconds / 1000.0f));
 }
 
@@ -40,10 +43,8 @@ void CANIntHandler(void) {
 int main(void) {
 
 	tCANMsgObject msg; // the CAN message object
-	unsigned int msgData; // the message data
-	unsigned char *msgDataPtr;
-
-	msgDataPtr = (unsigned char *)&msgData;
+	unsigned int msgData; // the message data is four bytes long which we can allocate as an int32
+	unsigned char *msgDataPtr = (unsigned char *)&msgData; // make a pointer to msgData so we can access individual bytes
 
 	// Run from the PLL at 120 MHz.
 	sysClock = SysCtlClockFreqSet((SYSCTL_XTAL_25MHZ | SYSCTL_OSC_MAIN | SYSCTL_USE_PLL | SYSCTL_CFG_VCO_480), 120000000);
@@ -69,7 +70,6 @@ int main(void) {
 	IntEnable(INT_CAN1);
 	CANEnable(CAN1_BASE);
 
-
 	// Set up msg object
 	msgData = 0;
 	msg.ui32MsgID = 1;
@@ -78,26 +78,27 @@ int main(void) {
 	msg.ui32MsgLen = sizeof(msgDataPtr);
 	msg.pui8MsgData = msgDataPtr;
 
-	int i = 0;
-	float freq = 0.3;
+	unsigned int t = 0; // loop counter
+	float freq = 0.3; // frequency scaler
 
 	while(1) {
 		
-		UARTprintf("Sending message: %d\n", msgData); // write the msg to UART for debugging
+		UARTprintf("Sending colour\tr: %d\tg: %d\tb: %d\n", msgDataPtr[0], msgDataPtr[1], msgDataPtr[2]); // write colour to UART for debugging
 		CANMessageSet(CAN1_BASE, 1, &msg, MSG_OBJ_TYPE_TX); // send as msg object 1
 
-		Delay(100); // wait 100ms
+		delay(100); // wait 100ms
 
 		if(errFlag) { // check for errors
 			UARTprintf("CAN Bus Error\n");
 		}
 
-		msgDataPtr[0] = sinf(i*freq) * 0xFF;
-		msgDataPtr[1] = sinf(i*freq + (2*3.141592f/3)) * 0xFF;
-		msgDataPtr[2] = sinf(i*freq + (4*3.141592f/3)) * 0xFF;
-		msgDataPtr[3] = 128;
+		// set up next colour (scale sinf (0-1) to 0-255)
+		msgDataPtr[0] = sinf(t*freq) * 0xFF;
+		msgDataPtr[1] = sinf(t*freq + (2*PI/3)) * 0xFF; // 120 degrees out of phase
+		msgDataPtr[2] = sinf(t*freq + (4*PI/3)) * 0xFF; // 240 degrees out of phase
+		msgDataPtr[3] = 128; // 50% intensity
 
-		i++;
+		t++; // overflow is fine
 	}
 
 	return 0;

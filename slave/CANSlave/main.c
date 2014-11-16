@@ -4,20 +4,18 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
 #include "inc/hw_can.h"
 #include "inc/hw_ints.h"
 #include "driverlib/can.h"
 #include "driverlib/interrupt.h"
-#include "driverlib/debug.h"
-#include "driverlib/fpu.h"
-#include "driverlib/gpio.h"
-#include "driverlib/pin_map.h"
-#include "driverlib/rom.h"
-#include "driverlib/rom_map.h"
 #include "driverlib/sysctl.h"
+#include "driverlib/gpio.h"
 #include "driverlib/uart.h"
+#include "driverlib/pin_map.h"
+
 #include "utils/uartstdio.h"
 #include "drivers/rgb.h"
 
@@ -43,8 +41,8 @@ void CANIntHandler(void) {
 
 int main(void) {
 
-	tCANMsgObject msg; // the can msg object
-	unsigned char msgData[8]; // the msg data
+	tCANMsgObject msg; // the CAN msg object
+	unsigned char msgData[8]; // 8 byte buffer for rx message data
 
 	// Run from crystal at 80Mhz
 	SysCtlClockSet(SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN);
@@ -89,7 +87,7 @@ int main(void) {
 
 		if(rxFlag) { // rx interrupt has occured
 
-			msg.pui8MsgData = msgData; // set pointer to receive buffer
+			msg.pui8MsgData = msgData; // set pointer to rx buffer
 			CANMessageGet(CAN0_BASE, 1, &msg, 0); // read CAN message object 1 from CAN peripheral
 
 			rxFlag = 0; // clear rx flag
@@ -98,11 +96,16 @@ int main(void) {
 				UARTprintf("CAN message loss detected\n");
 			}
 
+			// read in colour data from rx buffer (scale from 0-255 to 0-0xFFFF for LED driver)
 			colour[0] = msgData[0] * 0xFF;
 			colour[1] = msgData[1] * 0xFF;
 			colour[2] = msgData[2] * 0xFF;
-			intensity = msgData[3] / 255.0f;
+			intensity = msgData[3] / 255.0f; // scale from 0-255 to float 0-1
 
+			// write to UART for debugging
+			UARTprintf("Received colour\tr: %d\tg: %d\tb: %d\ti: %d\n", msgData[0], msgData[1], msgData[2], msgData[3]);
+
+			// set colour and intensity
 			RGBSet(colour, intensity);
 		}
 	}
