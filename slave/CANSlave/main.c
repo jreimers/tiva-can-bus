@@ -19,64 +19,45 @@
 #include "driverlib/sysctl.h"
 #include "driverlib/uart.h"
 #include "utils/uartstdio.h"
+#include "drivers/rgb.h"
 
-
-volatile unsigned long g_ulMsgCount = 0; // msg count
-
-volatile bool g_bRXFlag = 0; // msg recieved flag
-
-volatile bool g_bErrFlag = 0; // error flag
-
-#define RED_LED   GPIO_PIN_1
-#define BLUE_LED  GPIO_PIN_2
-#define GREEN_LED GPIO_PIN_3
-
+volatile bool rxFlag = 0; // msg recieved flag
+volatile bool errFlag = 0; // error flag
 
 // CAN interrupt handler
-void CANIntHandler(void)
-{
-    unsigned long ulStatus = CANIntStatus(CAN0_BASE, CAN_INT_STS_CAUSE);
+void CANIntHandler(void) {
 
-    // If the cause is a controller status interrupt, then get the status
-    if(ulStatus == CAN_INT_INTID_STATUS)
-    {
-        ulStatus = CANStatusGet(CAN0_BASE, CAN_STS_CONTROL);
+	unsigned long status = CANIntStatus(CAN0_BASE, CAN_INT_STS_CAUSE); // read interrupt status
 
-        UARTprintf("CAN Int, Status: %u\n", ulStatus);
-
-        g_bErrFlag = 1;
-    }
-    else if(ulStatus == 1) // msg object 1
-    {
-        CANIntClear(CAN0_BASE, 1); // clear interrupt
-
-        g_ulMsgCount++;
-        g_bRXFlag = 1;
-        g_bErrFlag = 0;
-    }
+	if(status == CAN_INT_INTID_STATUS) { // controller status interrupt
+		status = CANStatusGet(CAN0_BASE, CAN_STS_CONTROL);
+		errFlag = 1;
+	} else if(status == 1) { // msg object 1
+		CANIntClear(CAN0_BASE, 1); // clear interrupt
+		rxFlag = 1; // set rx flag
+		errFlag = 0; // clear any error flags
+	} else { // should never happen
+		UARTprintf("Unexpected CAN bus interrupt\n");
+	}
 }
 
-int main(void)
-{
-	tCANMsgObject sCANMessage;
-	unsigned char ucMsgData[8];
+int main(void) {
 
-    // Set the clocking to run directly from the crystal.
-    SysCtlClockSet(SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN);
+	tCANMsgObject msg; // the can msg object
+	unsigned char msgData[8]; // the msg data
 
-    // Set up debugging UART
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
-    GPIOPinConfigure(GPIO_PA0_U0RX);
-    GPIOPinConfigure(GPIO_PA1_U0TX);
-    GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
-    UARTStdioConfig(0, 115200, SysCtlClockGet());
+	// Run from crystal at 80Mhz
+	SysCtlClockSet(SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN);
 
-   	// Set up onboard LEDs
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-	GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, RED_LED|BLUE_LED|GREEN_LED);
+	// Set up debugging UART
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+	GPIOPinConfigure(GPIO_PA0_U0RX);
+	GPIOPinConfigure(GPIO_PA1_U0TX);
+	GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+	UARTStdioConfig(0, 115200, SysCtlClockGet());
 
-    // Set up CAN0
+	// Set up CAN0
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
 	GPIOPinConfigure(GPIO_PE4_CAN0RX);
 	GPIOPinConfigure(GPIO_PE5_CAN0TX);
@@ -89,55 +70,40 @@ int main(void)
 	IntEnable(INT_CAN0);
 	CANEnable(CAN0_BASE);
 
-	//
-	// Initialize a message object to be used for receiving CAN messages with
-	// any CAN ID.  In order to receive any CAN ID, the ID and mask must both
-	// be set to 0, and the ID filter enabled.
-	//
-	sCANMessage.ui32MsgID = 0;                        // CAN msg ID - 0 for any
-	sCANMessage.ui32MsgIDMask = 0;                    // mask is 0 for any ID
-	sCANMessage.ui32Flags = MSG_OBJ_RX_INT_ENABLE | MSG_OBJ_USE_ID_FILTER;
-	sCANMessage.ui32MsgLen = 8;                       // allow up to 8 bytes
+	// Set up LED driver
+    RGBInit(1);
 
-	//
-	// Now load the message object into the CAN peripheral.  Once loaded the
-	// CAN will receive any message on the bus, and an interrupt will occur.
-	// Use message object 1 for receiving messages (this is not the same as
-	// the CAN ID which can be any value in this example).
-	//
-	CANMessageSet(CAN0_BASE, 1, &sCANMessage, MSG_OBJ_TYPE_RX);
+	// Use ID and mask 0 to recieved messages with any CAN ID
+	msg.ui32MsgID = 0;
+	msg.ui32MsgIDMask = 0;
+	msg.ui32Flags = MSG_OBJ_RX_INT_ENABLE | MSG_OBJ_USE_ID_FILTER;
+	msg.ui32MsgLen = 8; // allow up to 8 bytes
 
-	UARTprintf("Clock: %u\nListening for messages...\n", SysCtlClockGet());
+	// Load msg into CAN peripheral message object 1 so it can trigger interrupts on any matched rx messages
+	CANMessageSet(CAN0_BASE, 1, &msg, MSG_OBJ_TYPE_RX);
 
-	while(1)
-	{
-		unsigned int uIdx;
+	unsigned int colour[3];
+	float intensity;
 
-		if(g_bRXFlag)
-		{
+	while(1) {
 
-			sCANMessage.pui8MsgData = ucMsgData;
-			CANMessageGet(CAN0_BASE, 1, &sCANMessage, 0);
+		if(rxFlag) { // rx interrupt has occured
 
-			g_bRXFlag = 0;
+			msg.pui8MsgData = msgData; // set pointer to receive buffer
+			CANMessageGet(CAN0_BASE, 1, &msg, 0); // read CAN message object 1 from CAN peripheral
 
-			if(sCANMessage.ui32Flags & MSG_OBJ_DATA_LOST)
-			{
+			rxFlag = 0; // clear rx flag
+
+			if(msg.ui32Flags & MSG_OBJ_DATA_LOST) { // check msg flags for any lost messages
 				UARTprintf("CAN message loss detected\n");
 			}
 
-			long out = 0;
-			int dataIdx;
-			for(dataIdx=0;dataIdx<4;dataIdx++) {
-				out |= (((long)ucMsgData[dataIdx])<<(dataIdx*8));
-			}
-			UARTprintf("Msg ID=0x%08X len=%u data=%d\n", sCANMessage.ui32MsgID, sCANMessage.ui32MsgLen, out);
-			UARTprintf("total count=%u\n", g_ulMsgCount);
-			if(out % 2 == 0) {
-				GPIOPinWrite(GPIO_PORTF_BASE, RED_LED|BLUE_LED|GREEN_LED, RED_LED|BLUE_LED);
-			} else {
-				GPIOPinWrite(GPIO_PORTF_BASE, RED_LED|BLUE_LED|GREEN_LED, BLUE_LED|GREEN_LED);
-			}
+			colour[0] = msgData[0] * 0xFF;
+			colour[1] = msgData[1] * 0xFF;
+			colour[2] = msgData[2] * 0xFF;
+			intensity = msgData[3] / 255.0f;
+
+			RGBSet(colour, intensity);
 		}
 	}
 

@@ -12,12 +12,13 @@
 #include "driverlib/uart.h"
 #include "driverlib/pin_map.h"
 #include "utils/uartstdio.h"
+#include "math.h"
 
 volatile bool errFlag = 0; // transmission error flag
 unsigned int sysClock; // clockspeed in hz
 
-void Delay(unsigned int seconds) {
-	SysCtlDelay((sysClock / 3) * seconds);
+void Delay(unsigned int milliseconds) {
+	SysCtlDelay((sysClock / 3) * (milliseconds / 1000.0f));
 }
 
 // CAN interrupt handler
@@ -77,18 +78,26 @@ int main(void) {
 	msg.ui32MsgLen = sizeof(msgDataPtr);
 	msg.pui8MsgData = msgDataPtr;
 
+	int i = 0;
+	float freq = 0.3;
+
 	while(1) {
 		
 		UARTprintf("Sending message: %d\n", msgData); // write the msg to UART for debugging
 		CANMessageSet(CAN1_BASE, 1, &msg, MSG_OBJ_TYPE_TX); // send as msg object 1
 
-		Delay(1); // wait 1 second
+		Delay(100); // wait 100ms
 
 		if(errFlag) { // check for errors
 			UARTprintf("CAN Bus Error\n");
 		}
 
-		msgData++; // increment msg data
+		msgDataPtr[0] = sinf(i*freq) * 0xFF;
+		msgDataPtr[1] = sinf(i*freq + (2*3.141592f/3)) * 0xFF;
+		msgDataPtr[2] = sinf(i*freq + (4*3.141592f/3)) * 0xFF;
+		msgDataPtr[3] = 128;
+
+		i++;
 	}
 
 	return 0;

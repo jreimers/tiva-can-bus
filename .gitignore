@@ -7,6 +7,9 @@ slave/*
 master/CANMaster/*
 slave/CANSlave/*
 
+!slave/CANSlave/drivers
+!slave/CANSlave/drivers/*
+
 !master/CANMaster/main.c
 !slave/CANSlave/main.c
 
