@@ -70,7 +70,7 @@ int main(void) {
 	CANEnable(CAN0_BASE);
 
 	// Set up LED driver
-    RGBInit(1);
+	RGBInit(1);
 
 	// Use ID and mask 0 to recieved messages with any CAN ID
 	msg.ui32MsgID = 0;
