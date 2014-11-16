@@ -1,3 +1,8 @@
+/*
+ * CAN bus LED controller master firmware
+ * Written for TI Tiva TM4C1294NCPDT
+ */
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <math.h>
@@ -15,7 +20,7 @@
 
 #include "utils/uartstdio.h"
 
-#define PI = 3.14159265359f
+#define PI 3.14159265359f
 
 volatile bool errFlag = 0; // transmission error flag
 unsigned int sysClock; // clockspeed in hz

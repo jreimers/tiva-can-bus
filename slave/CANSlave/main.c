@@ -1,5 +1,6 @@
 /*
- * CAN LED Slave
+ * CAN bus LED controller slave firmware
+ * Written for TI Tiva TM4C123GH6PM
  */
 
 #include <stdint.h>
