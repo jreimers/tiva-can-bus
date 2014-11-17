@@ -87,6 +87,12 @@ int main(void) {
 	float freq = 0.3; // frequency scaler
 
 	while(1) {
+
+		// set up next colour (scale sinf (0-1) to 0-255)
+		msgDataPtr[0] = sinf(t*freq) * 0xFF;
+		msgDataPtr[1] = sinf(t*freq + (2*PI/3)) * 0xFF; // 120 degrees out of phase
+		msgDataPtr[2] = sinf(t*freq + (4*PI/3)) * 0xFF; // 240 degrees out of phase
+		msgDataPtr[3] = 128; // 50% intensity
 		
 		UARTprintf("Sending colour\tr: %d\tg: %d\tb: %d\n", msgDataPtr[0], msgDataPtr[1], msgDataPtr[2]); // write colour to UART for debugging
 		CANMessageSet(CAN1_BASE, 1, &msg, MSG_OBJ_TYPE_TX); // send as msg object 1
@@ -96,12 +102,6 @@ int main(void) {
 		if(errFlag) { // check for errors
 			UARTprintf("CAN Bus Error\n");
 		}
-
-		// set up next colour (scale sinf (0-1) to 0-255)
-		msgDataPtr[0] = sinf(t*freq) * 0xFF;
-		msgDataPtr[1] = sinf(t*freq + (2*PI/3)) * 0xFF; // 120 degrees out of phase
-		msgDataPtr[2] = sinf(t*freq + (4*PI/3)) * 0xFF; // 240 degrees out of phase
-		msgDataPtr[3] = 128; // 50% intensity
 
 		t++; // overflow is fine
 	}
