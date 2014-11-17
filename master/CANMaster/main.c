@@ -89,9 +89,9 @@ int main(void) {
 	while(1) {
 
 		// set up next colour (scale sinf (0-1) to 0-255)
-		msgDataPtr[0] = sinf(t*freq) * 0xFF;
-		msgDataPtr[1] = sinf(t*freq + (2*PI/3)) * 0xFF; // 120 degrees out of phase
-		msgDataPtr[2] = sinf(t*freq + (4*PI/3)) * 0xFF; // 240 degrees out of phase
+		msgDataPtr[0] = (0.5 + 0.5*sinf(t*freq)) * 0xFF;
+		msgDataPtr[1] = (0.5 + 0.5*sinf(t*freq + (2*PI/3))) * 0xFF; // 120 degrees out of phase
+		msgDataPtr[2] = (0.5 + 0.5*sinf(t*freq + (4*PI/3))) * 0xFF; // 240 degrees out of phase
 		msgDataPtr[3] = 128; // 50% intensity
 		
 		UARTprintf("Sending colour\tr: %d\tg: %d\tb: %d\n", msgDataPtr[0], msgDataPtr[1], msgDataPtr[2]); // write colour to UART for debugging
