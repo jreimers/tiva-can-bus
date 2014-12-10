@@ -46,7 +46,7 @@ int main(void) {
 	unsigned char msgData[8]; // 8 byte buffer for rx message data
 
 	// Run from crystal at 80Mhz
-	SysCtlClockSet(SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN);
+	SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN);
 
 	// Set up debugging UART
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
